@@ -9,12 +9,36 @@ permissions:
   contents: write
 
 jobs:
-  update-osu:
-    runs-on: ubuntu-latest
 
+  check_update:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.decide.outputs.should_run }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Decide if update is needed
+        id: decide
+        run: |
+          RESPONSE=$(curl -s https://api.github.com/repos/ppy/osu/releases/latest)
+          TAG=$(echo "$RESPONSE" | jq -r '.tag_name')
+          BUILD_NUMBER=${TAG%-lazer}
+
+          CURRENT_BUILD=$(jq -r '.apps[0].versions[0].buildVersion // "none"' sources.json)
+
+          if [ "$CURRENT_BUILD" != "$BUILD_NUMBER" ]; then
+            echo "should-run=true" >> $GITHUB_OUTPUT
+          else
+            echo "should-run=false" >> $GITHUB_OUTPUT
+          fi
+
+  update_source:
+    needs: check_update
+    if: needs.check_update.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -25,11 +49,8 @@ jobs:
         id: release
         run: |
           RESPONSE=$(curl -s https://api.github.com/repos/ppy/osu/releases/latest)
-
-          # GitHub tag, e.g., 2026.1201-lazer
           TAG=$(echo "$RESPONSE" | jq -r '.tag_name')
-          BUILD_NUMBER=${TAG%-lazer}  # strip -lazer
-
+          BUILD_NUMBER=${TAG%-lazer}
           SIZE=$(echo "$RESPONSE" | jq -r '.assets[] | select(.name | test("iOS.*\\.ipa$")) | .size')
           URL=$(echo "$RESPONSE" | jq -r '.assets[] | select(.name | test("iOS.*\\.ipa$")) | .browser_download_url')
 
@@ -37,18 +58,9 @@ jobs:
           echo "size=$SIZE" >> $GITHUB_OUTPUT
           echo "url=$URL" >> $GITHUB_OUTPUT
 
-      - name: Check if update needed
-        run: |
-          CURRENT_BUILD=$(jq -r '.apps[0].versions[0].buildVersion // "none"' sources.json)
-          if [ "$CURRENT_BUILD" = "${{ steps.release.outputs.build }}" ]; then
-            echo "No update needed."
-            exit 0
-          fi
-
       - name: Update sources.json
         run: |
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
           jq \
             --arg build "${{ steps.release.outputs.build }}" \
             --arg url "${{ steps.release.outputs.url }}" \
@@ -67,5 +79,5 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add sources.json
-          git commit -m "auto update apps"
+          git commit -m "auto update app" || echo "No changes to commit"
           git push
