@@ -1,0 +1,23 @@
+{
+    "name": "amia's qol altstore source",
+    "subtitle": "random stuff",
+    "description": "qol source, so i don't have to keep redownloading things manually.",
+    "apps": [
+        {
+            "name": "osu!",
+            "bundleIdentifier": "sh.ppy.osulazer",
+            "developerName": "ppy",
+            "localizedDescription": "osu!",
+            "iconURL": "https://raw.githubusercontent.com/ppy/osu/refs/heads/master/assets/lazer.png",
+            "versions": [
+                {
+                    "version": "1.0",
+                    "buildVersion": "1",
+                    "date": "2026-01-1T01:00:00-01:00",
+                    "downloadURL": "https://github.com/ppy/osu/releases/latest/download/osu.iOS.ipa",
+                    "localizedDescription": "idfk"
+                }
+            ],
+        }
+    ],
+}
