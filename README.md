@@ -9,4 +9,5 @@ qol altstore sources for me
 
 ## current apps:
 currently tracks the following:
-1. osu!
+1. osu!lazer (stable)
+2. osu!lazer (tachyon)
