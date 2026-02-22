@@ -25,24 +25,29 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
       - id: check
         run: |
           RESPONSE=$(curl -s https://api.github.com/repos/ppy/osu/releases)
 
-          STABLE=$(echo "$RESPONSE" | jq '[.[] | select(.prerelease == false)][0]')
-          TACHYON=$(echo "$RESPONSE" | jq '[.[] | select(.prerelease == true)][0]')
+          # Match by tag suffix instead of prerelease flag
+          STABLE=$(echo "$RESPONSE" | jq '[.[] | select(.tag_name | endswith("-lazer"))][0]')
+          TACHYON=$(echo "$RESPONSE" | jq '[.[] | select(.tag_name | endswith("-tachyon"))][0]')
 
           STABLE_TAG=$(echo "$STABLE" | jq -r '.tag_name')
-          STABLE_BUILD=${STABLE_TAG%-lazer}
-          STABLE_URL=$(echo "$STABLE" | jq -r '.assets[] | select(.name | test("iOS.*\\.ipa$")) | .browser_download_url')
-          STABLE_SIZE=$(echo "$STABLE" | jq -r '.assets[] | select(.name | test("iOS.*\\.ipa$")) | .size')
-
           TACHYON_TAG=$(echo "$TACHYON" | jq -r '.tag_name')
+
+          STABLE_BUILD=${STABLE_TAG%-lazer}
           TACHYON_BUILD=${TACHYON_TAG%-tachyon}
-          TACHYON_URL=$(echo "$TACHYON" | jq -r '.assets[] | select(.name | test("iOS.*\\.ipa$")) | .browser_download_url')
-          TACHYON_SIZE=$(echo "$TACHYON" | jq -r '.assets[] | select(.name | test("iOS.*\\.ipa$")) | .size')
+
+          STABLE_URL=$(echo "$STABLE" | jq -r '.assets[] | select(.name | endswith(".ipa")) | .browser_download_url')
+          STABLE_SIZE=$(echo "$STABLE" | jq -r '.assets[] | select(.name | endswith(".ipa")) | .size')
+
+          TACHYON_URL=$(echo "$TACHYON" | jq -r '.assets[] | select(.name | endswith(".ipa")) | .browser_download_url')
+          TACHYON_SIZE=$(echo "$TACHYON" | jq -r '.assets[] | select(.name | endswith(".ipa")) | .size')
 
           CURRENT_STABLE=$(jq -r '.apps[0].versions[0].buildVersion' sources.json)
           CURRENT_TACHYON=$(jq -r '.apps[1].versions[0].buildVersion' sources.json)
@@ -84,12 +89,14 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Apply Updates
         run: |
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+          # Update stable if needed
           if [ "${{ needs.check_updates.outputs.stable_changed }}" == "true" ]; then
             jq \
               --arg build "${{ needs.check_updates.outputs.stable_build }}" \
@@ -106,13 +113,14 @@ jobs:
                 }' sources.json > tmp.json && mv tmp.json sources.json
           fi
 
+          # Update tachyon if needed
           if [ "${{ needs.check_updates.outputs.tachyon_changed }}" == "true" ]; then
             jq \
               --arg build "${{ needs.check_updates.outputs.tachyon_build }}" \
               --arg url "${{ needs.check_updates.outputs.tachyon_url }}" \
               --arg date "$DATE" \
               --argjson size ${{ needs.check_updates.outputs.tachyon_size }} \
-              '.apps[0].versions[0] |=
+              '.apps[1].versions[0] |=
                 . + {
                   version: "1.0",
                   buildVersion: $build,
@@ -127,5 +135,5 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add sources.json
-          git commit -m "auto update apps"
+          git commit -m "auto update apps" || exit 0
           git push
