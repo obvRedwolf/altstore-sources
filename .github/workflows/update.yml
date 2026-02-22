@@ -21,29 +21,26 @@ jobs:
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Get latest osu release
+      - name: Fetch latest osu release
         id: release
         run: |
           RESPONSE=$(curl -s https://api.github.com/repos/ppy/osu/releases/latest)
 
-          VERSION=$(echo "$RESPONSE" | jq -r '.tag_name')
-          # Strip -lazer suffix for build number
-          BUILD_NUMBER=${VERSION%-lazer}
+          # GitHub tag, e.g., 2026.1201-lazer
+          TAG=$(echo "$RESPONSE" | jq -r '.tag_name')
+          BUILD_NUMBER=${TAG%-lazer}  # strip -lazer
 
           SIZE=$(echo "$RESPONSE" | jq -r '.assets[] | select(.name | test("iOS.*\\.ipa$")) | .size')
           URL=$(echo "$RESPONSE" | jq -r '.assets[] | select(.name | test("iOS.*\\.ipa$")) | .browser_download_url')
 
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "build=$BUILD_NUMBER" >> $GITHUB_OUTPUT
           echo "size=$SIZE" >> $GITHUB_OUTPUT
           echo "url=$URL" >> $GITHUB_OUTPUT
 
       - name: Check if update needed
-        id: check
         run: |
-          CURRENT_VERSION=$(jq -r '.apps[0].versions[0].version // "none"' sources.json)
-
-          if [ "$CURRENT_VERSION" = "${{ steps.release.outputs.version }}" ]; then
+          CURRENT_BUILD=$(jq -r '.apps[0].versions[0].buildVersion // "none"' sources.json)
+          if [ "$CURRENT_BUILD" = "${{ steps.release.outputs.build }}" ]; then
             echo "No update needed."
             exit 0
           fi
@@ -53,24 +50,22 @@ jobs:
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           jq \
-            --arg version "${{ steps.release.outputs.version }}" \
             --arg build "${{ steps.release.outputs.build }}" \
             --arg url "${{ steps.release.outputs.url }}" \
             --arg date "$DATE" \
             --argjson size ${{ steps.release.outputs.size }} \
-            '.apps[0].versions[0] = {
-              version: $version,
-              buildVersion: $build,
-              date: $date,
-              downloadURL: $url,
-              localizedDescription: "auto updated",
-              size: $size
-            }' sources.json > tmp.json && mv tmp.json sources.json
+            '.apps[0].versions[0] |=
+              . + {
+                buildVersion: $build,
+                downloadURL: $url,
+                size: $size,
+                date: $date
+              }' sources.json > tmp.json && mv tmp.json sources.json
 
       - name: Commit & Push
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add sources.json
-          git commit -m "Auto-update osu release"
+          git commit -m "audo update apps"
           git push
