@@ -1,0 +1,63 @@
+name: check for app updates
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get latest osu release
+        id: release
+        run: |
+          RESPONSE=$(curl -s https://api.github.com/repos/ppy/osu/releases/latest)
+
+          VERSION=$(echo "$RESPONSE" | jq -r '.tag_name')
+          SIZE=$(echo "$RESPONSE" | jq -r '.assets[] | select(.name | test("iOS.*\\.ipa$")) | .size')
+          DOWNLOAD_URL=$(echo "$RESPONSE" | jq -r '.assets[] | select(.name | test("iOS.*\\.ipa$")) | .browser_download_url')
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "size=$SIZE" >> $GITHUB_OUTPUT
+          echo "url=$DOWNLOAD_URL" >> $GITHUB_OUTPUT
+
+      - name: Check if version changed
+        id: check
+        run: |
+          CURRENT_VERSION=$(jq -r '.apps[0].versions[0].version' sources.json 2>/dev/null || echo "none")
+
+          if [ "$CURRENT_VERSION" = "${{ steps.release.outputs.version }}" ]; then
+            echo "No update needed."
+            exit 0
+          fi
+
+      - name: Update sources.json
+        run: |
+          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          jq \
+            --arg version "${{ steps.release.outputs.version }}" \
+            --arg url "${{ steps.release.outputs.url }}" \
+            --arg date "$DATE" \
+            --argjson size ${{ steps.release.outputs.size }} \
+            '.apps[0].versions[0] = {
+              version: $version,
+              buildVersion: "1",
+              date: $date,
+              downloadURL: $url,
+              localizedDescription: "auto updated",
+              size: $size
+            }' \
+            sources.json > tmp.json && mv tmp.json sources.json
+
+      - name: Commit & push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add sources.json
+          git commit -m "check for app updates"
+          git push
