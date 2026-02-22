@@ -14,10 +14,11 @@
                     "version": "1.0",
                     "buildVersion": "1",
                     "date": "2026-01-1T01:00:00-01:00",
+                    "size": 209207413,
                     "downloadURL": "https://github.com/ppy/osu/releases/latest/download/osu.iOS.ipa",
                     "localizedDescription": "idfk"
                 }
-            ],
+            ]
         }
-    ],
+    ]
 }
