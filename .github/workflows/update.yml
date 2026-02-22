@@ -10,74 +10,122 @@ permissions:
 
 jobs:
 
-  check_update:
+  check_updates:
     runs-on: ubuntu-latest
     outputs:
-      should_run: ${{ steps.decide.outputs.should_run }}
+      changed: ${{ steps.check.outputs.changed }}
+      stable_changed: ${{ steps.check.outputs.stable_changed }}
+      tachyon_changed: ${{ steps.check.outputs.tachyon_changed }}
+      stable_build: ${{ steps.check.outputs.stable_build }}
+      stable_url: ${{ steps.check.outputs.stable_url }}
+      stable_size: ${{ steps.check.outputs.stable_size }}
+      tachyon_build: ${{ steps.check.outputs.tachyon_build }}
+      tachyon_url: ${{ steps.check.outputs.tachyon_url }}
+      tachyon_size: ${{ steps.check.outputs.tachyon_size }}
+
     steps:
       - uses: actions/checkout@v4
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
-      - name: Decide if update is needed
-        id: decide
+      - run: sudo apt-get update && sudo apt-get install -y jq
+
+      - id: check
         run: |
-          RESPONSE=$(curl -s https://api.github.com/repos/ppy/osu/releases/latest)
-          TAG=$(echo "$RESPONSE" | jq -r '.tag_name')
-          BUILD_NUMBER=${TAG%-lazer}
+          RESPONSE=$(curl -s https://api.github.com/repos/ppy/osu/releases)
 
-          CURRENT_BUILD=$(jq -r '.apps[0].versions[0].buildVersion // "none"' sources.json)
+          STABLE=$(echo "$RESPONSE" | jq '[.[] | select(.prerelease == false)][0]')
+          TACHYON=$(echo "$RESPONSE" | jq '[.[] | select(.prerelease == true)][0]')
 
-          if [ "$CURRENT_BUILD" != "$BUILD_NUMBER" ]; then
-            echo "should-run=true" >> $GITHUB_OUTPUT
-          else
-            echo "should-run=false" >> $GITHUB_OUTPUT
+          STABLE_TAG=$(echo "$STABLE" | jq -r '.tag_name')
+          STABLE_BUILD=${STABLE_TAG%-lazer}
+          STABLE_URL=$(echo "$STABLE" | jq -r '.assets[] | select(.name | test("iOS.*\\.ipa$")) | .browser_download_url')
+          STABLE_SIZE=$(echo "$STABLE" | jq -r '.assets[] | select(.name | test("iOS.*\\.ipa$")) | .size')
+
+          TACHYON_TAG=$(echo "$TACHYON" | jq -r '.tag_name')
+          TACHYON_BUILD=${TACHYON_TAG%-tachyon}
+          TACHYON_URL=$(echo "$TACHYON" | jq -r '.assets[] | select(.name | test("iOS.*\\.ipa$")) | .browser_download_url')
+          TACHYON_SIZE=$(echo "$TACHYON" | jq -r '.assets[] | select(.name | test("iOS.*\\.ipa$")) | .size')
+
+          CURRENT_STABLE=$(jq -r '.apps[0].versions[0].buildVersion' sources.json)
+          CURRENT_TACHYON=$(jq -r '.apps[1].versions[0].buildVersion' sources.json)
+
+          STABLE_CHANGED=false
+          TACHYON_CHANGED=false
+          ANY_CHANGED=false
+
+          if [ "$CURRENT_STABLE" != "$STABLE_BUILD" ]; then
+            STABLE_CHANGED=true
+            ANY_CHANGED=true
           fi
 
-  update_source:
-    needs: check_update
-    if: needs.check_update.outputs.should_run == 'true'
+          if [ "$CURRENT_TACHYON" != "$TACHYON_BUILD" ]; then
+            TACHYON_CHANGED=true
+            ANY_CHANGED=true
+          fi
+
+          echo "stable_changed=$STABLE_CHANGED" >> $GITHUB_OUTPUT
+          echo "tachyon_changed=$TACHYON_CHANGED" >> $GITHUB_OUTPUT
+          echo "changed=$ANY_CHANGED" >> $GITHUB_OUTPUT
+
+          echo "stable_build=$STABLE_BUILD" >> $GITHUB_OUTPUT
+          echo "stable_url=$STABLE_URL" >> $GITHUB_OUTPUT
+          echo "stable_size=$STABLE_SIZE" >> $GITHUB_OUTPUT
+
+          echo "tachyon_build=$TACHYON_BUILD" >> $GITHUB_OUTPUT
+          echo "tachyon_url=$TACHYON_URL" >> $GITHUB_OUTPUT
+          echo "tachyon_size=$TACHYON_SIZE" >> $GITHUB_OUTPUT
+
+
+  update_sources:
+    needs: check_updates
+    if: needs.check_updates.outputs.changed == 'true'
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
+      - run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Fetch latest osu release
-        id: release
-        run: |
-          RESPONSE=$(curl -s https://api.github.com/repos/ppy/osu/releases/latest)
-          TAG=$(echo "$RESPONSE" | jq -r '.tag_name')
-          BUILD_NUMBER=${TAG%-lazer}
-          SIZE=$(echo "$RESPONSE" | jq -r '.assets[] | select(.name | test("iOS.*\\.ipa$")) | .size')
-          URL=$(echo "$RESPONSE" | jq -r '.assets[] | select(.name | test("iOS.*\\.ipa$")) | .browser_download_url')
-
-          echo "build=$BUILD_NUMBER" >> $GITHUB_OUTPUT
-          echo "size=$SIZE" >> $GITHUB_OUTPUT
-          echo "url=$URL" >> $GITHUB_OUTPUT
-
-      - name: Update sources.json
+      - name: Apply Updates
         run: |
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          jq \
-            --arg build "${{ steps.release.outputs.build }}" \
-            --arg url "${{ steps.release.outputs.url }}" \
-            --arg date "$DATE" \
-            --argjson size ${{ steps.release.outputs.size }} \
-            '.apps[0].versions[0] |=
-              . + {
-                buildVersion: $build,
-                downloadURL: $url,
-                size: $size,
-                date: $date
-              }' sources.json > tmp.json && mv tmp.json sources.json
 
-      - name: Commit & Push
+          if [ "${{ needs.check_updates.outputs.stable_changed }}" == "true" ]; then
+            jq \
+              --arg build "${{ needs.check_updates.outputs.stable_build }}" \
+              --arg url "${{ needs.check_updates.outputs.stable_url }}" \
+              --arg date "$DATE" \
+              --argjson size ${{ needs.check_updates.outputs.stable_size }} \
+              '.apps[0].versions[0] |=
+                . + {
+                  version: "1.0",
+                  buildVersion: $build,
+                  downloadURL: $url,
+                  size: $size,
+                  date: $date
+                }' sources.json > tmp.json && mv tmp.json sources.json
+          fi
+
+          if [ "${{ needs.check_updates.outputs.tachyon_changed }}" == "true" ]; then
+            jq \
+              --arg build "${{ needs.check_updates.outputs.tachyon_build }}" \
+              --arg url "${{ needs.check_updates.outputs.tachyon_url }}" \
+              --arg date "$DATE" \
+              --argjson size ${{ needs.check_updates.outputs.tachyon_size }} \
+              '.apps[0].versions[0] |=
+                . + {
+                  version: "1.0",
+                  buildVersion: $build,
+                  downloadURL: $url,
+                  size: $size,
+                  date: $date
+                }' sources.json > tmp.json && mv tmp.json sources.json
+          fi
+
+      - name: Commit Once
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add sources.json
-          git commit -m "auto update app" || echo "No changes to commit"
+          git commit -m "auto update apps"
           git push

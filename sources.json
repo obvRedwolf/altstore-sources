@@ -4,19 +4,36 @@
   "description": "qol source, so i don't have to keep redownloading things manually.",
   "apps": [
     {
-      "name": "osu!",
+      "name": "osu!lazer (stable)",
       "bundleIdentifier": "sh.ppy.osulazer",
       "developerName": "ppy",
-      "localizedDescription": "osu!",
-      "iconURL": "https://raw.githubusercontent.com/ppy/osu/refs/heads/master/assets/lazer.png",
+      "localizedDescription": "osu!lazer stable",
+      "iconURL": "https://raw.githubusercontent.com/ppy/osu/master/assets/lazer.png",
       "versions": [
         {
           "version": "1.0",
-          "buildVersion": "2026.119.0",
-          "date": "2026-02-22T09:22:05Z",
-          "downloadURL": "https://github.com/ppy/osu/releases/download/2026.119.0-lazer/osu.iOS.ipa",
+          "buildVersion": "0",
+          "date": "1970-01-01T00:00:00Z",
+          "downloadURL": "",
           "localizedDescription": "auto updated",
-          "size": 209207413
+          "size": 0
+        }
+      ]
+    },
+    {
+      "name": "osu!lazer (tachyon)",
+      "bundleIdentifier": "sh.ppy.osulazer.tachyon",
+      "developerName": "ppy",
+      "localizedDescription": "osu!lazer bleeding edge",
+      "iconURL": "https://raw.githubusercontent.com/ppy/osu/master/assets/lazer.png",
+      "versions": [
+        {
+          "version": "1.0",
+          "buildVersion": "0",
+          "date": "1970-01-01T00:00:00Z",
+          "downloadURL": "",
+          "localizedDescription": "auto updated",
+          "size": 0
         }
       ]
     }
