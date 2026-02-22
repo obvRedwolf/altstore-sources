@@ -7,6 +7,6 @@ qol altstore sources for me
 
 2. profit
 
-# current apps:
+## current apps:
 currently tracks the following:
 1. osu!
