@@ -6,3 +6,7 @@ qol altstore sources for me
 `https://raw.githubusercontent.com/obvRedwolf/altstore-sources/main/sources.json`
 
 2. profit
+
+# current apps:
+currently tracks the following:
+1. osu!
