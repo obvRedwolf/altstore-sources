@@ -66,6 +66,12 @@ jobs:
             ANY_CHANGED=true
           fi
 
+          if [ -z "$TACHYON_URL" ]; then
+            echo "No tachyon IPA found, skipping update."
+            TACHYON_CHANGED=false
+            TACHYON_SIZE=0
+          fi
+
           echo "stable_changed=$STABLE_CHANGED" >> $GITHUB_OUTPUT
           echo "tachyon_changed=$TACHYON_CHANGED" >> $GITHUB_OUTPUT
           echo "changed=$ANY_CHANGED" >> $GITHUB_OUTPUT
