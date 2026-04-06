@@ -12,11 +12,11 @@
       "versions": [
         {
           "version": "1.0",
-          "buildVersion": "2026.401.0",
-          "date": "2026-03-31T19:49:38Z",
-          "downloadURL": "https://github.com/ppy/osu/releases/download/2026.401.0-lazer/osu.iOS.ipa",
+          "buildVersion": "2026.406.0",
+          "date": "2026-04-06T08:18:42Z",
+          "downloadURL": "https://github.com/ppy/osu/releases/download/2026.406.0-lazer/osu.iOS.ipa",
           "localizedDescription": "auto updated",
-          "size": 216334203
+          "size": 219984168
         }
       ]
     },
