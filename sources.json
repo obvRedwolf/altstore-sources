@@ -29,11 +29,11 @@
       "versions": [
         {
           "version": "1.0",
-          "buildVersion": "2026.525.0",
-          "date": "2026-05-25T16:59:29Z",
-          "downloadURL": "https://github.com/ppy/osu/releases/download/2026.525.0-tachyon/osu.iOS.ipa",
+          "buildVersion": "2026.602.0",
+          "date": "2026-06-03T08:07:18Z",
+          "downloadURL": "https://github.com/ppy/osu/releases/download/2026.602.0-tachyon/osu.iOS.ipa",
           "localizedDescription": "auto updated",
-          "size": 222080213
+          "size": 222013578
         }
       ]
     }
